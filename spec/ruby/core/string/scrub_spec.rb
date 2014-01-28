@@ -26,7 +26,7 @@ ruby_version_is "2.1" do
     end
 
     it "replaces groups of sequences together with a single replacement" do
-      "\xE3\x80".scrub("*").should == "**"
+      "\xE3\x80".scrub("*").should == "*"
     end
 
     it "raises ArgumentError for replacements with an invalid encoding" do
