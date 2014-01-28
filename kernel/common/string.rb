@@ -1911,7 +1911,8 @@ class String
 
   # Removes invalid byte sequences from a String, available since Ruby 2.1.
   def scrub(replace = nil)
-    new_str = ''
+    output = ''
+    input  = dup
 
     # The default replacement character is the "Unicode replacement" character.
     # (U+FFFD).
@@ -1920,33 +1921,43 @@ class String
         .encode(self.encoding, :undef => :replace, :replace => '?')
     end
 
-    if replace and !replace.is_a?(String)
-      raise(
-        TypeError,
-        "no implicit conversion of #{replace.class} into String"
-      )
+    if replace
+      unless replace.is_a?(String)
+        raise(
+          TypeError,
+          "no implicit conversion of #{replace.class} into String"
+        )
+      end
+
+      unless replace.valid_encoding?
+        raise(
+          ArgumentError,
+          "replacement must be a valid byte sequence '#{replace.inspect}'"
+        )
+      end
+
+      replace = replace.force_encoding(Encoding::BINARY)
     end
 
-    if replace and !replace.valid_encoding?
-      raise(
-        ArgumentError,
-        "replacement must be a valid byte sequence '#{replace.inspect}'"
-      )
-    end
+    converter = Encoding::Converter.new(input.encoding, Encoding::BINARY)
 
-    chars.each do |char|
-      if char.valid_encoding?
-        new_str << char
+    while input.length > 0
+      result = converter.primitive_convert(input, output, output.length)
+
+      if result == :finished
+        break
+      elsif result == :undefined_conversion
+        output << converter.primitive_errinfo[3]
       else
         if block_given?
-          new_str << yield(char)
+          output << yield(converter.primitive_errinfo[3])
         else
-          new_str << replace
+          output << replace
         end
       end
     end
 
-    return new_str
+    return output.force_encoding(encoding)
   end
 
   def []=(index, count_or_replacement, replacement=undefined)
